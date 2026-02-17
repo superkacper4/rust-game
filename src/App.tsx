@@ -1,57 +1,115 @@
-import { useEffect, useState } from "react";
-import reactLogo from "./assets/react.svg";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
+import { listen } from "@tauri-apps/api/event";
+
+const TILE_SIZE = 10;
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
-  const [mapa, setMapa] = useState([]);
+  const [game, setGame] = useState();
+  // const [generatedMap, setGeneratedMap] = useState([]);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  // Setup event listener for game state updates
+  useEffect(() => {
+    let unlisten;
+
+    const setupListener = async () => {
+      unlisten = await listen("game_state_updated", (event) => {
+        console.log("Game state updated:", event.payload);
+        setGame(event.payload);
+      });
+    };
+
+    setupListener();
+
+    // Cleanup listener on unmount
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, []);
 
   useEffect(() => {
-    if (mapa.length) return;
-    invoke("generate_map")
-      .then((x) => setMapa(x))
+    if (game) return;
+    invoke("initialize_game")
+      .then((x) => setGame(x))
       .catch((err) => console.log(err));
   }, []);
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!ctx || !game) return;
+
+    game.map?.forEach((tile) => {
+      ctx.fillStyle =
+        tile.owner === "Player"
+          ? `rgba(63,113,212,${tile.value / 400})`
+          : `rgba(255,85,0,${tile.value / 400})`;
+      ctx.fillRect(
+        tile.x * TILE_SIZE,
+        tile.y * TILE_SIZE,
+        TILE_SIZE,
+        TILE_SIZE,
+      );
+    });
+
+    return () => ctx.clearRect(0, 0, canvas?.width, canvas?.height);
+  }, [game]);
+
+  const handleCanvasClick = (event) => {
+    const canvas = canvasRef.current;
+
+    if (!canvas) return;
+
+    const elemLeft = canvas.offsetLeft;
+    const elemTop = canvas.offsetTop;
+    const context = canvas.getContext("2d");
+
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - elemLeft;
+    const y = event.clientY - elemTop;
+
+    // Przelicz współrzędne na tile
+    const tileX = Math.floor(x / TILE_SIZE);
+    const tileY = Math.floor(y / TILE_SIZE);
+
+    console.log(tileX, tileY);
+    console.log(x, y);
+    console.log(event.clientX, elemLeft);
+    console.log(event.clientY, elemTop);
+
+    // Znajdź tile po współrzędnych
+    const clickedTile = game.map?.find(
+      (tile) => tile.x === tileX && tile.y === tileY,
+    );
+
+    if (clickedTile) {
+      console.log("Clicked tile:", clickedTile);
+
+      // Wywołaj buy_map_tile
+      invoke("buy_map_tile_command", { tileId: clickedTile.id }).catch(
+        (err) => {
+          console.error("Failed to buy tile:", err);
+        },
+      );
+    }
+  };
+
+  console.log(game);
+
   return (
     <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-      {mapa && mapa.map((x) => x.value)}
-      <div className="row">
-        <a href="https://vitejs.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://reactjs.org" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+      <canvas
+        onClick={handleCanvasClick}
+        ref={canvasRef}
+        id="canvas"
+        width="200"
+        height="200"
+      />
+      <button onClick={() => invoke("end_turn")}>End turn</button>
     </main>
   );
 }
