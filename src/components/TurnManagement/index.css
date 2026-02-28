@@ -1,0 +1,9 @@
+.TurnManagement {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+}
+
+.PlayerStats {
+    display: flex;
+}

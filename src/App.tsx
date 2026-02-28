@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 import { listen } from "@tauri-apps/api/event";
+import { getTileColour, getTileImage } from "./helpers";
+import { SmallTileManagement } from "./components/SmallTileManagement";
+import { TurnManagement } from "./components/TurnManagement";
 
-const TILE_SIZE = 10;
+const TILE_SIZE = 64;
 
 function App() {
   const [game, setGame] = useState();
-  // const [generatedMap, setGeneratedMap] = useState([]);
+  const [selectedTile, setSelectedTile] = useState();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Setup event listener for game state updates
@@ -16,7 +19,6 @@ function App() {
 
     const setupListener = async () => {
       unlisten = await listen("game_state_updated", (event) => {
-        console.log("Game state updated:", event.payload);
         setGame(event.payload);
       });
     };
@@ -44,72 +46,67 @@ function App() {
     if (!ctx || !game) return;
 
     game.map?.forEach((tile) => {
-      ctx.fillStyle =
-        tile.owner === "Player"
-          ? `rgba(63,113,212,${tile.value / 400})`
-          : `rgba(255,85,0,${tile.value / 400})`;
-      ctx.fillRect(
-        tile.x * TILE_SIZE,
-        tile.y * TILE_SIZE,
-        TILE_SIZE,
-        TILE_SIZE,
-      );
+      const image = new Image(TILE_SIZE, TILE_SIZE);
+      image.onload = () => {
+        ctx.drawImage(
+          image,
+          tile.x * TILE_SIZE,
+          tile.y * TILE_SIZE,
+          TILE_SIZE,
+          TILE_SIZE,
+        );
+      };
+      image.src = getTileImage(tile);
     });
 
     return () => ctx.clearRect(0, 0, canvas?.width, canvas?.height);
   }, [game]);
 
-  const handleCanvasClick = (event) => {
+  const handleCanvasClick = async (event) => {
     const canvas = canvasRef.current;
-
     if (!canvas) return;
 
-    const elemLeft = canvas.offsetLeft;
-    const elemTop = canvas.offsetTop;
-    const context = canvas.getContext("2d");
-
     const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - elemLeft;
-    const y = event.clientY - elemTop;
 
-    // Przelicz współrzędne na tile
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    const x = (event.clientX - rect.left) * scaleX;
+    const y = (event.clientY - rect.top) * scaleY;
+
     const tileX = Math.floor(x / TILE_SIZE);
     const tileY = Math.floor(y / TILE_SIZE);
 
-    console.log(tileX, tileY);
-    console.log(x, y);
-    console.log(event.clientX, elemLeft);
-    console.log(event.clientY, elemTop);
-
-    // Znajdź tile po współrzędnych
     const clickedTile = game.map?.find(
       (tile) => tile.x === tileX && tile.y === tileY,
     );
 
     if (clickedTile) {
-      console.log("Clicked tile:", clickedTile);
+      console.log("Clicked tile: ", clickedTile.id);
+      const tileObject = { tileId: clickedTile.id };
 
-      // Wywołaj buy_map_tile
-      invoke("buy_map_tile_command", { tileId: clickedTile.id }).catch(
-        (err) => {
-          console.error("Failed to buy tile:", err);
-        },
-      );
+      const result = await invoke("check_if_player_owns_tile", tileObject);
+
+      setSelectedTile({ ...tileObject, owned: result });
     }
   };
 
-  console.log(game);
+  console.log(selectedTile);
 
   return (
-    <main className="container">
+    <main className="Container">
       <canvas
         onClick={handleCanvasClick}
         ref={canvasRef}
         id="canvas"
-        width="200"
-        height="200"
+        width={TILE_SIZE * 20}
+        height={TILE_SIZE * 20}
       />
-      <button onClick={() => invoke("end_turn")}>End turn</button>
+      <SmallTileManagement
+        setSelectedTile={setSelectedTile}
+        selectedTile={selectedTile}
+      />
+      <TurnManagement game={game} />
     </main>
   );
 }

@@ -2,11 +2,6 @@ use crate::game::Game;
 use std::sync::Mutex;
 use tauri::Manager;
 
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
 struct AppState {
     game_state: Game,
 }
@@ -26,11 +21,12 @@ pub fn run() {
         })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
-            greet,
             game::buy_map_tile_command,
+            game::change_building_for_tile,
             game::get_game_state,
             game::initialize_game,
-            game::end_turn
+            game::end_turn,
+            map::check_if_player_owns_tile
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
