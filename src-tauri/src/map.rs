@@ -7,7 +7,7 @@ use crate::AppState;
 
 const DIMESSIONS: i64 = 20;
 
-#[derive(Serialize, Deserialize, Clone, Copy)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub enum BuildingKind {
     APARTMENT,
     EMPTY,
@@ -53,6 +53,10 @@ impl MapTile {
 
     pub fn set_owner_to_player(&mut self) {
         self.owner = OwnerKind::Player;
+    }
+
+    pub fn set_owner_to_game(&mut self) {
+        self.owner = OwnerKind::Game;
     }
 }
 

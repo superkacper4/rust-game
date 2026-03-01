@@ -8,6 +8,7 @@ struct AppState {
 
 mod game;
 mod map;
+mod materials;
 mod player;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -26,6 +27,7 @@ pub fn run() {
             game::get_game_state,
             game::initialize_game,
             game::end_turn,
+            game::sell_map_tile_command,
             map::check_if_player_owns_tile
         ])
         .run(tauri::generate_context!())

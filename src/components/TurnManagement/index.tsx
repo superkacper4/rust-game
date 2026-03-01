@@ -9,6 +9,7 @@ export const TurnManagement = ({ game }) => {
         {game?.player.name} | {game?.player.cash} cent $ |{" "}
         {game?.player.actions_left_in_turn}{" "}
       </div>
+      <div className="PlayerStats">wood: {game?.player.materials.wood}</div>
     </div>
   );
 };

@@ -1,10 +1,11 @@
-import apartmentImg from "./assets/large_house.png";
-import factoryImg from "./assets/blacksmith.png";
-import farmImg from "./assets/farm.png";
-import houseImg from "./assets/small_cottage.png";
-import officeImg from "./assets/stone_keep.png";
-import shopImg from "./assets/market_stall.png";
-import defaultImg from "./assets/grass_plain.png";
+import apartmentImg from "./assets/1.png";
+import factoryImg from "./assets/2.png";
+import farmImg from "./assets/3.png";
+import houseImg from "./assets/4.png";
+import officeImg from "./assets/5.png";
+import shopImg from "./assets/6.png";
+import grassImg1 from "./assets/14.png";
+import grassImg2 from "./assets/15.png";
 
 export const getTileColour = (tile) => {
   switch (tile.building) {
@@ -40,6 +41,6 @@ export const getTileImage = (tile) => {
     case "SHOP":
       return shopImg;
     default:
-      return defaultImg;
+      return [grassImg1, grassImg2][Math.round(Math.random())];
   }
 };

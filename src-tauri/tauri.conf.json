@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "rust-game",
+  "productName": "CityBuild",
   "version": "0.1.0",
-  "identifier": "rust-game",
+  "identifier": "CityBuild",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,9 +12,9 @@
   "app": {
     "windows": [
       {
-        "title": "rust-game",
-        "width": 800,
-        "height": 600
+        "title": "CityBuild",
+        "width": 1700,
+        "height": 1000
       }
     ],
     "security": {

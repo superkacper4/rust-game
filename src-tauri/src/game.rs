@@ -1,4 +1,5 @@
-use crate::map::{self, MapTile};
+use crate::map::{self, BuildingKind, MapTile};
+use crate::materials::Materials;
 use crate::player::Player;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
@@ -8,6 +9,7 @@ use tauri::Emitter;
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Game {
     pub map: Vec<MapTile>,
+    pub market: Materials,
     pub player: Player,
 }
 
@@ -15,6 +17,7 @@ impl Game {
     pub fn new() -> Self {
         Self {
             map: map::generate_map(),
+            market: Materials::init(),
             player: Player::init(),
         }
     }
@@ -55,6 +58,7 @@ impl Game {
 
     pub fn change_building(
         tile_id: &str,
+        building_kind: BuildingKind,
         game_state: &mut Game,
         app: tauri::AppHandle,
     ) -> Result<String, String> {
@@ -68,16 +72,32 @@ impl Game {
             .position(|tile| tile.get_id() == tile_id)
             .ok_or_else(|| format!("Tile with id {} not found", tile_id))?;
 
-        MapTile::change_building(
-            &mut game_state.map[map_tile_index],
-            map::BuildingKind::APARTMENT,
-        );
+        MapTile::change_building(&mut game_state.map[map_tile_index], building_kind);
 
         if let Err(err) = game_state.player.take_one_action() {
             eprintln!("Soft fail: {}", err);
         }
         app.emit("game_state_updated", &game_state).unwrap();
         Ok("Building's been changed.".to_string())
+    }
+
+    pub fn sell_map_tile(tile_id: &str, game_state: &mut Game) -> Result<String, String> {
+        if game_state.player.take_one_action().is_err() {
+            return Err("No actions left in this turn".to_string());
+        }
+
+        let tile_index = game_state
+            .map
+            .iter()
+            .position(|tile| tile.get_id() == tile_id)
+            .ok_or_else(|| format!("Tile with id {} not found", tile_id))?;
+
+        let tile = &mut game_state.map[tile_index];
+
+        game_state.player.add_cash(tile.get_value());
+        MapTile::set_owner_to_game(tile);
+
+        return Ok("MapTile has been sold".to_string());
     }
 
     pub fn tick(game_state: &mut Game, app: tauri::AppHandle) -> () {
@@ -88,6 +108,7 @@ impl Game {
             .count() as i64;
         game_state.player.cash -= (1 + number_of_tiles_owned) * 100;
         game_state.player.actions_left_in_turn = 2;
+        game_state.market.add_per_tick();
         app.emit("game_state_updated", &game_state).unwrap();
     }
 }
@@ -97,6 +118,7 @@ pub fn initialize_game(state: tauri::State<Mutex<AppState>>, app: tauri::AppHand
     let mut state = state.lock().unwrap();
     let game = Game::new();
     state.game_state = game.clone();
+    app.emit("game_state_updated", &state.game_state).unwrap();
     return game;
 }
 
@@ -117,6 +139,22 @@ pub fn buy_map_tile_command(
 }
 
 #[tauri::command]
+pub fn sell_map_tile_command(
+    tile_id: &str,
+    state: tauri::State<Mutex<AppState>>,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    let mut state = state.lock().unwrap();
+    let result = Game::sell_map_tile(tile_id, &mut state.game_state);
+    if result.is_ok() {
+        app.emit("game_state_updated", &state.game_state).unwrap();
+        Ok(format!("Successfully bought tile {}", tile_id))
+    } else {
+        Err("Something went wrong".to_string())
+    }
+}
+
+#[tauri::command]
 pub fn get_game_state(state: tauri::State<Mutex<AppState>>) -> Game {
     let state = state.lock().unwrap();
     state.game_state.clone()
@@ -125,11 +163,12 @@ pub fn get_game_state(state: tauri::State<Mutex<AppState>>) -> Game {
 #[tauri::command]
 pub fn change_building_for_tile(
     tile_id: &str,
+    building_kind: BuildingKind,
     state: tauri::State<Mutex<AppState>>,
     app: tauri::AppHandle,
 ) -> Result<String, String> {
     let mut state = state.lock().unwrap();
-    return Game::change_building(tile_id, &mut state.game_state, app);
+    return Game::change_building(tile_id, building_kind, &mut state.game_state, app);
 }
 
 #[tauri::command]

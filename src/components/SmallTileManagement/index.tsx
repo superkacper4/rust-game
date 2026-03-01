@@ -2,7 +2,6 @@ import { invoke } from "@tauri-apps/api/core";
 import "./index.css";
 
 export const SmallTileManagement = ({ setSelectedTile, selectedTile }) => {
-  console.log(selectedTile);
   if (!selectedTile) return null;
 
   const handleClick = (onClick: () => void) => {
@@ -10,15 +9,26 @@ export const SmallTileManagement = ({ setSelectedTile, selectedTile }) => {
     setSelectedTile(null);
   };
 
+  console.log(selectedTile);
+
   return (
     <div className="SmallTileManagement">
       {selectedTile.owned ? (
         <div>
-          <button>sprzedaj</button>
+          <button
+            onClick={() =>
+              handleClick(() => invoke("sell_map_tile_command", selectedTile))
+            }
+          >
+            sprzedaj
+          </button>
           <button
             onClick={() =>
               handleClick(() =>
-                invoke("change_building_for_tile", selectedTile),
+                invoke("change_building_for_tile", {
+                  buildingKind: "APARTMENT",
+                  tileId: selectedTile.tileId,
+                }),
               )
             }
           >
