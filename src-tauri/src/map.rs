@@ -1,9 +1,9 @@
-use std::sync::Mutex;
+use std::{collections::HashMap, sync::Mutex};
 
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::AppState;
+use crate::{materials::Materials, AppState};
 
 const DIMESSIONS: i64 = 20;
 
@@ -29,6 +29,7 @@ pub struct MapTile {
     building: BuildingKind,
     id: String,
     owner: OwnerKind,
+    resource: HashMap<String, i64>,
     x: i64,
     y: i64,
     value: i64,
@@ -45,6 +46,10 @@ impl MapTile {
 
     pub fn get_value(&self) -> i64 {
         self.value
+    }
+
+    pub fn get_resource(&self) -> &HashMap<String, i64> {
+        &self.resource
     }
 
     pub fn is_owned_by_player(&self) -> bool {
@@ -81,6 +86,7 @@ pub fn generate_map() -> Vec<MapTile> {
                 building: get_default_building(value),
                 id: format!("{}{}", x, y),
                 owner: OwnerKind::Game,
+                resource: Materials::get_random_materials(),
                 value,
                 x,
                 y,

@@ -17,7 +17,7 @@ impl Game {
     pub fn new() -> Self {
         Self {
             map: map::generate_map(),
-            market: Materials::init(),
+            market: Materials::init_market(),
             player: Player::init(),
         }
     }
@@ -101,12 +101,17 @@ impl Game {
     }
 
     pub fn tick(game_state: &mut Game, app: tauri::AppHandle) -> () {
-        let number_of_tiles_owned = game_state
+        let tiles_owned = game_state
             .map
             .iter()
             .filter(|x| x.is_owned_by_player())
-            .count() as i64;
+            .collect();
+
+        game_state.player.materials = game_state.player.change_materials(&tiles_owned);
+
+        let number_of_tiles_owned = tiles_owned.len() as i64;
         game_state.player.cash -= (1 + number_of_tiles_owned) * 100;
+
         game_state.player.actions_left_in_turn = 2;
         game_state.market.add_per_tick();
         app.emit("game_state_updated", &game_state).unwrap();
