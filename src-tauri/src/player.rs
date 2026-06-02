@@ -37,6 +37,14 @@ impl Player {
         return true;
     }
 
+    pub fn check_if_can_afford(&self, materials: Materials) -> bool {
+        return self.materials.clay >= materials.clay
+            && self.materials.grain >= materials.grain
+            && self.materials.iron >= materials.iron
+            && self.materials.stone >= materials.stone
+            && self.materials.wood >= materials.wood;
+    }
+
     pub fn take_one_action(&mut self) -> Result<String, String> {
         if self.check_if_out_of_actions_left() {
             return Err("Not enough actions left".to_string());
@@ -51,6 +59,14 @@ impl Player {
 
     pub fn subtract_cash(&mut self, amount: i64) {
         self.cash -= amount;
+    }
+
+    pub fn subtract_materials(&mut self, materials: Materials) {
+        self.materials.clay -= materials.clay;
+        self.materials.grain -= materials.grain;
+        self.materials.iron -= materials.iron;
+        self.materials.stone -= materials.stone;
+        self.materials.wood -= materials.wood;
     }
 
     pub fn init() -> Player {

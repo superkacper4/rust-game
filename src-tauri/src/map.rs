@@ -147,6 +147,60 @@ fn pick_random_high_value_center() -> f64 {
     return num as f64;
 }
 
+pub fn get_build_cost(building_kind: BuildingKind) -> Materials {
+    match building_kind {
+        BuildingKind::APARTMENT => Materials {
+            clay: 120,
+            grain: 40,
+            iron: 80,
+            stone: 150,
+            wood: 100,
+        },
+        BuildingKind::FACTORY => Materials {
+            clay: 100,
+            grain: 20,
+            iron: 250,
+            stone: 180,
+            wood: 120,
+        },
+        BuildingKind::FARM => Materials {
+            clay: 40,
+            grain: 30,
+            iron: 20,
+            stone: 60,
+            wood: 80,
+        },
+        BuildingKind::HOUSE => Materials {
+            clay: 80,
+            grain: 20,
+            iron: 40,
+            stone: 90,
+            wood: 120,
+        },
+        BuildingKind::OFFICE => Materials {
+            clay: 90,
+            grain: 30,
+            iron: 180,
+            stone: 140,
+            wood: 110,
+        },
+        BuildingKind::SHOP => Materials {
+            clay: 70,
+            grain: 50,
+            iron: 60,
+            stone: 80,
+            wood: 100,
+        },
+        BuildingKind::EMPTY => Materials {
+            clay: 0,
+            grain: 0,
+            iron: 0,
+            stone: 0,
+            wood: 0,
+        },
+    }
+}
+
 #[tauri::command]
 pub fn check_if_player_owns_tile(tile_id: &str, state: tauri::State<Mutex<AppState>>) -> bool {
     let state = state.lock().unwrap();

@@ -1,6 +1,6 @@
-use crate::map::{self, BuildingKind, MapTile};
+use crate::map::{self, get_build_cost, BuildingKind, MapTile};
 use crate::materials::Materials;
-use crate::player::Player;
+use crate::player::{self, Player};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -65,6 +65,13 @@ impl Game {
         if game_state.player.check_if_out_of_actions_left() {
             return Err("No actions left in this turn".to_string());
         }
+
+        let build_cost_materials = get_build_cost(building_kind);
+
+        if !game_state.player.check_if_can_afford(build_cost_materials) {
+            return Err("Not enough materials to build".to_string());
+        }
+        game_state.player.subtract_materials(build_cost_materials);
 
         let map_tile_index = game_state
             .map
