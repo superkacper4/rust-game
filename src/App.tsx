@@ -124,7 +124,10 @@ function App() {
 
     if (clickedTile) {
       console.log("Clicked tile: ", clickedTile.id);
-      const tileObject = { tileId: clickedTile.id };
+      const tileObject = {
+        tileId: clickedTile.id,
+        playerId: game.current_player_turn,
+      };
 
       const result = await invoke("check_if_player_owns_tile", tileObject);
 
@@ -169,6 +172,7 @@ function App() {
         onMouseMove={handleCanvasHover}
         style={{ position: "absolute", top: 0, left: 0 }}
       />
+      <div>Current turn: {game?.current_player_turn}</div>
       <SmallTileManagement
         setSelectedTile={setSelectedTile}
         selectedTile={selectedTile}

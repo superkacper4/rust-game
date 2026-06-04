@@ -4,10 +4,17 @@ use crate::{map::MapTile, materials::Materials};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Player {
+    pub id: String,
     pub actions_left_in_turn: i32,
     pub cash: i64, // cash in cents
     pub name: String,
     pub materials: Materials,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub enum PlayerId {
+    Player,
+    Enemy,
 }
 
 impl Player {
@@ -69,8 +76,9 @@ impl Player {
         self.materials.wood -= materials.wood;
     }
 
-    pub fn init() -> Player {
+    pub fn init(id: &str) -> Player {
         return Player {
+            id: id.to_string(),
             actions_left_in_turn: 2,
             cash: 10000000,
             name: "Kacper".to_owned(),

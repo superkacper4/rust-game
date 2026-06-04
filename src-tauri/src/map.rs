@@ -19,16 +19,10 @@ pub enum BuildingKind {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub enum OwnerKind {
-    Player,
-    Game,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
 pub struct MapTile {
     building: BuildingKind,
     id: String,
-    owner: OwnerKind,
+    owner_id: Option<String>,
     resource: HashMap<String, i64>,
     x: i64,
     y: i64,
@@ -52,16 +46,20 @@ impl MapTile {
         &self.resource
     }
 
-    pub fn is_owned_by_player(&self) -> bool {
-        matches!(self.owner, OwnerKind::Player)
+    pub fn is_owned(&self) -> bool {
+        self.owner_id != None
     }
 
-    pub fn set_owner_to_player(&mut self) {
-        self.owner = OwnerKind::Player;
+    pub fn is_owned_by_player(&self, id: &str) -> bool {
+        self.owner_id == Some(id.to_string())
+    }
+
+    pub fn set_owner_to_player(&mut self, id: &String) {
+        self.owner_id = Some(id.to_string());
     }
 
     pub fn set_owner_to_game(&mut self) {
-        self.owner = OwnerKind::Game;
+        self.owner_id = None;
     }
 }
 
@@ -85,7 +83,7 @@ pub fn generate_map() -> Vec<MapTile> {
             map.push(MapTile {
                 building: get_default_building(value),
                 id: format!("{}{}", x, y),
-                owner: OwnerKind::Game,
+                owner_id: None,
                 resource: Materials::get_random_materials(),
                 value,
                 x,
@@ -202,7 +200,11 @@ pub fn get_build_cost(building_kind: BuildingKind) -> Materials {
 }
 
 #[tauri::command]
-pub fn check_if_player_owns_tile(tile_id: &str, state: tauri::State<Mutex<AppState>>) -> bool {
+pub fn check_if_player_owns_tile(
+    tile_id: &str,
+    player_id: &str,
+    state: tauri::State<Mutex<AppState>>,
+) -> bool {
     let state = state.lock().unwrap();
 
     let tile_index = state
@@ -217,5 +219,5 @@ pub fn check_if_player_owns_tile(tile_id: &str, state: tauri::State<Mutex<AppSta
         Err(_) => return false,
     };
 
-    return state.game_state.map[tile_index].is_owned_by_player();
+    return state.game_state.map[tile_index].is_owned_by_player(player_id);
 }
