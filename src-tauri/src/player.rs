@@ -1,20 +1,22 @@
+use std::sync::Mutex;
+
 use serde::{Deserialize, Serialize};
 
-use crate::{map::MapTile, materials::Materials};
+use crate::{map::MapTile, materials::Materials, AppState};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum PlayerId {
+    Player,
+    Enemy,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Player {
-    pub id: String,
+    pub id: PlayerId,
     pub actions_left_in_turn: i32,
     pub cash: i64, // cash in cents
     pub name: String,
     pub materials: Materials,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub enum PlayerId {
-    Player,
-    Enemy,
 }
 
 impl Player {
@@ -76,13 +78,25 @@ impl Player {
         self.materials.wood -= materials.wood;
     }
 
-    pub fn init(id: &str) -> Player {
+    pub fn init(id: PlayerId, name: String) -> Player {
         return Player {
-            id: id.to_string(),
+            id,
             actions_left_in_turn: 2,
             cash: 10000000,
-            name: "Kacper".to_owned(),
+            name,
             materials: Materials::init_player(),
         };
     }
+}
+
+#[tauri::command]
+pub fn get_current_player(state: tauri::State<Mutex<AppState>>, app: tauri::AppHandle) -> Player {
+    let state = state.lock().unwrap();
+    let player = state
+        .game_state
+        .players
+        .get(&state.game_state.current_player_turn)
+        .expect("No player with given ID for the UI");
+
+    return player.clone();
 }

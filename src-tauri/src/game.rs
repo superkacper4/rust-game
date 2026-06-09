@@ -1,44 +1,54 @@
 use crate::map::{self, get_build_cost, BuildingKind, MapTile};
 use crate::materials::Materials;
-use crate::player::Player;
-use crate::{game, AppState};
+use crate::player::{Player, PlayerId};
+use crate::AppState;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::Emitter;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Game {
-    pub current_player_turn: String,
+    pub current_player_turn: PlayerId,
     pub map: Vec<MapTile>,
     pub market: Materials,
-    pub player: Player,
-    pub enemy1: Player,
-    pub players_queue: Vec<String>,
+    pub players: HashMap<PlayerId, Player>,
+    pub players_queue: Vec<PlayerId>,
 }
 
 impl Game {
     pub fn new() -> Self {
         let mut players_queue = Vec::new();
-        let player_id = "player";
-        let enemy_id = "enemy1";
+        let mut players = HashMap::new();
 
-        let player = Player::init(&player_id);
-        let enemy1 = Player::init(&enemy_id);
+        players.insert(
+            PlayerId::Player,
+            Player::init(PlayerId::Player, "Kacper".to_string()),
+        );
+        players.insert(
+            PlayerId::Enemy,
+            Player::init(PlayerId::Enemy, "Johnny".to_string()),
+        );
 
-        players_queue.push(player_id.to_string());
-        players_queue.push(enemy_id.to_string());
+        players_queue.push(PlayerId::Enemy);
+        players_queue.push(PlayerId::Player);
+
         Self {
-            current_player_turn: player_id.to_string(),
-            enemy1,
+            current_player_turn: PlayerId::Player,
             map: map::generate_map(),
             market: Materials::init_market(),
-            player,
+            players,
             players_queue,
         }
     }
 
     pub fn buy_map_tile(tile_id: &str, game_state: &mut Game) -> Result<String, String> {
-        if game_state.player.check_if_out_of_actions_left() {
+        let player = game_state
+            .players
+            .get_mut(&game_state.current_player_turn)
+            .expect("No player with given ID");
+
+        if player.check_if_out_of_actions_left() {
             return Err("No actions left in this turn".to_string());
         }
 
@@ -55,14 +65,14 @@ impl Game {
         }
 
         let tile_value = tile.get_value();
-        let player = game_state.get_current_player_mut();
-        if game_state.player.get_cash() < tile_value {
+
+        if player.get_cash() < tile_value {
             return Err("Not enough cash to buy this tile".to_string());
         }
 
-        game_state.player.subtract_cash(tile_value);
+        player.subtract_cash(tile_value);
         tile.set_owner_to_player(&game_state.current_player_turn);
-        if let Err(err) = game_state.player.take_one_action() {
+        if let Err(err) = player.take_one_action() {
             eprintln!("Soft fail: {}", err);
         }
 
@@ -78,16 +88,21 @@ impl Game {
         game_state: &mut Game,
         app: tauri::AppHandle,
     ) -> Result<String, String> {
-        if game_state.player.check_if_out_of_actions_left() {
+        let player = game_state
+            .players
+            .get_mut(&game_state.current_player_turn)
+            .expect("No player with given ID");
+
+        if player.check_if_out_of_actions_left() {
             return Err("No actions left in this turn".to_string());
         }
 
         let build_cost_materials = get_build_cost(building_kind);
 
-        if !game_state.player.check_if_can_afford(build_cost_materials) {
+        if !player.check_if_can_afford(build_cost_materials) {
             return Err("Not enough materials to build".to_string());
         }
-        game_state.player.subtract_materials(build_cost_materials);
+        player.subtract_materials(build_cost_materials);
 
         let map_tile_index = game_state
             .map
@@ -97,31 +112,36 @@ impl Game {
 
         MapTile::change_building(&mut game_state.map[map_tile_index], building_kind);
 
-        if let Err(err) = game_state.player.take_one_action() {
+        if let Err(err) = player.take_one_action() {
             eprintln!("Soft fail: {}", err);
         }
         app.emit("game_state_updated", &game_state).unwrap();
         Ok("Building's been changed.".to_string())
     }
 
-    pub fn get_current_player_mut(&mut self) -> &mut Player {
-        match self.current_player_turn.as_str() {
-            "player" => &mut self.player,
-            "enemy1" => &mut self.enemy1,
-            _ => panic!("Unknown player"),
-        }
-    }
+    pub fn get_next_turn_player(&self) -> PlayerId {
+        let index_of_current_player = self
+            .players_queue
+            .iter()
+            .position(|player_id| player_id == &self.current_player_turn)
+            .expect("No player in the queue.");
 
-    pub fn get_next_turn_player(&self) -> String {
-        match self.current_player_turn.as_str() {
-            "player" => "enemy1".to_string(),
-            "enemy1" => "player".to_string(),
-            _ => panic!("Unknown player"),
+        let length_of_queue = self.players_queue.len();
+
+        if index_of_current_player == length_of_queue - 1 {
+            return self.players_queue[0];
         }
+
+        return self.players_queue[index_of_current_player + 1];
     }
 
     pub fn sell_map_tile(tile_id: &str, game_state: &mut Game) -> Result<String, String> {
-        if game_state.player.take_one_action().is_err() {
+        let player = game_state
+            .players
+            .get_mut(&game_state.current_player_turn)
+            .expect("No player with given ID");
+
+        if player.take_one_action().is_err() {
             return Err("No actions left in this turn".to_string());
         }
 
@@ -135,28 +155,29 @@ impl Game {
         MapTile::set_owner_to_game(tile);
 
         let tile_clone = tile.clone();
-        let current_player = game_state.get_current_player_mut();
-        current_player.add_cash(tile_clone.get_value());
+        player.add_cash(tile_clone.get_value());
 
         return Ok("MapTile has been sold".to_string());
     }
 
     pub fn tick(game_state: &mut Game, app: tauri::AppHandle) -> () {
-        let game_state_clone = game_state.clone();
-        let tiles_owned = game_state_clone
+        let player = game_state
+            .players
+            .get_mut(&game_state.current_player_turn)
+            .expect("No player with given ID");
+
+        let tiles_owned = game_state
             .map
             .iter()
             .filter(|x| x.is_owned_by_player(&game_state.current_player_turn))
             .collect();
 
-        let current_player = game_state.get_current_player_mut();
-
-        current_player.materials = current_player.change_materials(&tiles_owned);
+        player.materials = player.change_materials(&tiles_owned);
 
         let number_of_tiles_owned = tiles_owned.len() as i64;
-        current_player.cash -= (1 + number_of_tiles_owned) * 100;
+        player.cash -= (1 + number_of_tiles_owned) * 100;
 
-        current_player.actions_left_in_turn = 2;
+        player.actions_left_in_turn = 2;
         game_state.market.add_per_tick();
         game_state.current_player_turn = game_state.get_next_turn_player();
         app.emit("game_state_updated", &game_state).unwrap();

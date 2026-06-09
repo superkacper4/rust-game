@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Mutex};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::{materials::Materials, AppState};
+use crate::{materials::Materials, player::PlayerId, AppState};
 
 const DIMESSIONS: i64 = 20;
 
@@ -18,11 +18,11 @@ pub enum BuildingKind {
     SHOP,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MapTile {
     building: BuildingKind,
     id: String,
-    owner_id: Option<String>,
+    owner_id: Option<PlayerId>,
     resource: HashMap<String, i64>,
     x: i64,
     y: i64,
@@ -50,12 +50,12 @@ impl MapTile {
         self.owner_id != None
     }
 
-    pub fn is_owned_by_player(&self, id: &str) -> bool {
-        self.owner_id == Some(id.to_string())
+    pub fn is_owned_by_player(&self, id: &PlayerId) -> bool {
+        self.owner_id == Some(id.clone())
     }
 
-    pub fn set_owner_to_player(&mut self, id: &String) {
-        self.owner_id = Some(id.to_string());
+    pub fn set_owner_to_player(&mut self, id: &PlayerId) {
+        self.owner_id = Some(id.clone());
     }
 
     pub fn set_owner_to_game(&mut self) {
@@ -202,7 +202,7 @@ pub fn get_build_cost(building_kind: BuildingKind) -> Materials {
 #[tauri::command]
 pub fn check_if_player_owns_tile(
     tile_id: &str,
-    player_id: &str,
+    player_id: PlayerId,
     state: tauri::State<Mutex<AppState>>,
 ) -> bool {
     let state = state.lock().unwrap();
@@ -219,5 +219,5 @@ pub fn check_if_player_owns_tile(
         Err(_) => return false,
     };
 
-    return state.game_state.map[tile_index].is_owned_by_player(player_id);
+    return state.game_state.map[tile_index].is_owned_by_player(&player_id);
 }

@@ -28,7 +28,8 @@ pub fn run() {
             game::initialize_game,
             game::end_turn,
             game::sell_map_tile_command,
-            map::check_if_player_owns_tile
+            map::check_if_player_owns_tile,
+            player::get_current_player
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
